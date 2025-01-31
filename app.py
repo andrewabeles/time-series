@@ -2,9 +2,7 @@ import streamlit as st
 import pandas as pd 
 import numpy as np 
 import plotly.express as px 
-import plotly.graph_objects as go
-from statsmodels.tsa.stattools import adfuller, acf, pacf
-from statsmodels.tsa.seasonal import seasonal_decompose
+from utils import plot_seasonal_decomposition, plot_autocorrelation
 
 st.title("Time Series Analyzer")
 
@@ -20,8 +18,6 @@ if uploaded_file is not None:
     )
     df[dt_colname] = pd.to_datetime(df[dt_colname], utc=True)
     df.set_index(dt_colname, inplace=True)
-    df = df.resample('D').mean()
-    st.write(df.head())
 
     # determine target 
     y_colname = st.selectbox(
@@ -32,7 +28,8 @@ if uploaded_file is not None:
     # plot raw time series 
     raw_fig = px.line(
         df,
-        y=df[y_colname]
+        y=df[y_colname],
+        title='Raw Time Series'
     )
     st.plotly_chart(raw_fig)
 
@@ -42,21 +39,31 @@ if uploaded_file is not None:
         min_value=1,
         help="""The expected period of seasonality. For example, 4 if data is quarterly, 7 if daily, etc."""
     )
-    decomp = seasonal_decompose(df[y_colname].dropna(), period=period)
-    decomp_df = df.copy()
-    decomp_df['trend'] = decomp.trend 
-    decomp_df['seasonal'] = decomp.seasonal 
-    decomp_df['residual'] = decomp.resid
-
-    decomp_fig = go.Figure()
-
-    # Add traces
-    decomp_fig.add_trace(go.Scatter(x=df.index, y=df[y_colname], mode='lines', name='Original'))
-    decomp_fig.add_trace(go.Scatter(x=df.index, y=decomp_df['trend'], mode='lines', name='Trend'))
-    decomp_fig.add_trace(go.Scatter(x=df.index, y=decomp_df['seasonal'], mode='lines', name='Seasonality'))
-    decomp_fig.add_trace(go.Scatter(x=df.index, y=decomp_df['residual'], mode='lines', name='Residual'))
-
-    # Update layout
-    decomp_fig.update_layout(title="Time Series Decomposition", xaxis_title="Date", yaxis_title="Value")
-
+    decomp_fig = plot_seasonal_decomposition(df, y=y_colname, period=period)
     st.plotly_chart(decomp_fig)
+
+
+
+    # difference time series 
+    st.header("Difference Time Series")
+    y_diff_colname = f'{y_colname}_diff'
+    df[y_diff_colname] = df[y_colname].diff()
+
+    diff_fig = px.line(
+        df,
+        y=y_diff_colname,
+        title='Differenced Time Series'
+    )
+    st.plotly_chart(diff_fig)
+
+    # autocorrelation 
+    confidence = st.selectbox(
+        "Confidence Level",
+        [0.99, 0.95, 0.9, 0.8],
+        index=1
+    )
+    alpha = 1 - confidence 
+    acf_fig = plot_autocorrelation(df[y_diff_colname], alpha=alpha)
+    pacf_fig = plot_autocorrelation(df[y_diff_colname], alpha=alpha, partial=True)
+    st.plotly_chart(acf_fig)
+    st.plotly_chart(pacf_fig)
