@@ -4,6 +4,23 @@ from statsmodels.tsa.stattools import adfuller, acf, pacf
 import plotly.graph_objects as go
 import plotly.express as px
 
+def test_stationarity(y, alpha=0.05, **kwargs):
+    adf_result = adfuller(y.dropna(), **kwargs)
+    adf_stat, p_value = adf_result[:2]
+    summary = f"ADF P-value: {p_value}"
+    if p_value < alpha:
+        return f"{summary}. The time series is stationary."
+    else:
+        return f"{summary}. The time series is not stationary."
+
+def get_difference(y, degree=1):
+    y_diff = y.diff()
+    degree -= 1
+    if degree == 0:
+        return y_diff
+    else:
+        return get_difference(y_diff, degree=degree)
+
 def plot_seasonal_decomposition(df, y=None, period=1):
     decomp = seasonal_decompose(df[y].dropna(), period=period)
     decomp_df = df[[y]].copy()
