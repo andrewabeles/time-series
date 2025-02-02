@@ -1,8 +1,18 @@
 import pandas as pd
+import numpy as np
+import itertools
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller, acf, pacf
+from statsmodels.tsa.arima.model import ARIMA
+from sklearn.metrics import mean_squared_error
 import plotly.graph_objects as go
 import plotly.express as px
+
+def split_time_series(df, test_size=0.2):
+    """Splits time series dataframe into train and test sets based on time."""
+    split_idx = int(len(df) * (1 - test_size))
+    train, test = df.iloc[:split_idx].copy(), df.iloc[split_idx:].copy()
+    return train, test
 
 def test_stationarity(y, alpha=0.05, **kwargs):
     adf_result = adfuller(y.dropna(), **kwargs)
@@ -58,3 +68,50 @@ def plot_autocorrelation(y, alpha=0.05, partial=False):
         title=title
     )
     return fig
+
+def arima_grid_search(y_train, y_val, p_range=(0, 2), d_range=(0, 1), q_range=(0, 2)):
+    best_aic, best_rmse = np.inf, np.inf 
+    best_order = None 
+    results = []
+
+    for p, d, q in itertools.product(
+            range(p_range[0], p_range[1] + 1),
+            range(d_range[0], d_range[1] + 1),
+            range(q_range[0], q_range[1] + 1)
+        ):
+        aic, rmse = evaluate_arima(y_train, y_val, p=p, d=d, q=q)
+        results.append([p, d, q, aic, rmse])
+        if aic < best_aic:
+            best_aic, best_rmse, best_order = aic, rmse, (p, d, q)
+    results_df = pd.DataFrame(results, columns=['p', 'd', 'q', 'AIC', 'RMSE'])
+    return results_df.sort_values('AIC')
+
+def evaluate_arima(y_train, y_val, p=0, d=0, q=0):
+    try:
+        model = ARIMA(y_train, order=(p, d, q))
+        model_fit = model.fit()
+        
+        # Forecast on validation set
+        y_forecast = model_fit.forecast(steps=len(y_val))
+        
+        # Compute RMSE
+        rmse = np.sqrt(mean_squared_error(y_val, y_forecast))
+        
+        return model_fit.aic, rmse
+    except:
+        return np.inf, np.inf  # Return bad scores if model fails
+
+def plot_forecast_vs_actuals(y_actual, y_forecast):
+    forecast_df = pd.DataFrame({
+        't': y_actual.index,
+        'actual': y_actual.values,
+        'forecast': y_forecast
+    }).melt(id_vars='t', var_name='series', value_name='value')
+    fig = px.line(
+        forecast_df,
+        x='t',
+        y='value',
+        color='series',
+        title='Forecast vs. Actual (Validation Set)'
+    )
+    return fig 
