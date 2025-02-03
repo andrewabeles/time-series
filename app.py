@@ -3,10 +3,11 @@ import pandas as pd
 import numpy as np 
 import plotly.express as px 
 from statsmodels.tsa.arima.model import ARIMA
+from statsmodels.tsa.statespace.sarimax import SARIMAX
 from utils import (
     split_time_series, test_stationarity, get_difference, 
     plot_seasonal_decomposition, plot_autocorrelation, 
-    arima_grid_search, plot_forecast_vs_actuals
+    plot_forecast_vs_actuals
 )
 
 st.title("Time Series Analyzer")
@@ -59,22 +60,6 @@ if uploaded_file is not None:
     st.write(f'Validation Rows: {len(df_val)}')
     st.write(f'Test Rows: {len(df_test)}')
 
-    # plot raw time series 
-    raw_fig = px.line(
-        y_train,
-        title='Raw Time Series'
-    )
-    st.plotly_chart(raw_fig)
-
-    st.header("Seasonal Decomposition")
-    period = st.number_input(
-        "Period of Time Series",
-        min_value=1,
-        help="""The expected period of seasonality. For example, 4 if data is quarterly, 7 if daily, etc."""
-    )
-    decomp_fig = plot_seasonal_decomposition(df_train, y=y_colname, period=period)
-    st.plotly_chart(decomp_fig)
-
     st.header("Stationarity")
     confidence = st.selectbox(
         "Confidence Level",
@@ -83,22 +68,15 @@ if uploaded_file is not None:
     )
     alpha = 1 - confidence 
 
-    st.subheader("Stationarity Test of Raw Time Series")
-    stationarity_raw = test_stationarity(y_train, alpha=alpha)
-    st.write(stationarity_raw)
-
     # difference time series 
     degree = st.number_input(
         "Difference Degree",
         min_value=0,
-        max_value=5,
+        max_value=3,
         value=1
     )
     y_diff_colname = f'{y_colname}_diff'
-    if degree > 0:
-        y_train_diff = get_difference(y_train, degree=degree)
-    else:
-        y_train_diff = y_train
+    y_train_diff = get_difference(y_train, degree=degree)
 
     diff_fig = px.line(
         y_train_diff,
@@ -106,7 +84,6 @@ if uploaded_file is not None:
     )
     st.plotly_chart(diff_fig)
 
-    st.subheader("Stationarity Test of Differenced Time Series")
     stationarity_diff = test_stationarity(y_train_diff, alpha=alpha)
     st.write(stationarity_diff)
 
@@ -117,15 +94,61 @@ if uploaded_file is not None:
     st.plotly_chart(acf_fig)
     st.plotly_chart(pacf_fig)
 
-    # ARIMA modeling 
-    st.header("ARIMA Model Selection")
-    p = st.number_input("Select p", min_value=0, value=1)
-    d = st.number_input("Select d", min_value=0, value=1)
-    q = st.number_input("Select q", min_value=0, value=1)
-    arima_model = ARIMA(df_train[y_colname], order=(p, d, q)).fit()
-    forecast = arima_model.get_forecast(steps=len(df))
-    y_val_forecast = arima_model.forecast(steps=len(df_val[y_colname]))
-    val_forecast_vs_actuals_fig = plot_forecast_vs_actuals(df_val[y_colname], y_val_forecast)
-    st.plotly_chart(val_forecast_vs_actuals_fig)
+    st.header("Seasonal Decomposition")
+    period = st.number_input(
+        "Period of Time Series",
+        min_value=1,
+        help="""The expected period of seasonality. For example, 4 if data is quarterly, 7 if daily, etc."""
+    )
+    seasonal_degree = st.number_input(
+        "Seasonal Difference Degree",
+        min_value=0,
+        max_value=3,
+        value=0
+    )
+    y_train_seasonal = get_difference(y_train, degree=seasonal_degree, period=period)
+    seasonal_fig = px.line(
+        y_train_seasonal,
+        title='Seasonally Differenced Time Series'
+    )
+    st.plotly_chart(seasonal_fig)
+    stationarity_seasonal = test_stationarity(y_train_diff, alpha=alpha)
+    st.write(stationarity_seasonal)
+    seasonal_acf_fig = plot_autocorrelation(y_train_seasonal, alpha=alpha)
+    seasonal_pacf_fig = plot_autocorrelation(y_train_seasonal, alpha=alpha, partial=True)
+    st.plotly_chart(seasonal_acf_fig)
+    st.plotly_chart(seasonal_pacf_fig)
 
-    st.write(arima_model.get_forecast(steps=len(df_val[y_colname])))
+    decomp_fig = plot_seasonal_decomposition(df_train, y=y_colname, period=period)
+    st.plotly_chart(decomp_fig)
+
+    # Seasonal ARIMA modeling 
+    st.header("ARIMA Model Selection")
+    p = st.number_input("Select p", min_value=0, value=0)
+    d = st.number_input("Select d", min_value=0, value=0)
+    q = st.number_input("Select q", min_value=0, value=0)
+    P = st.number_input("Select P", min_value=0, value=0)
+    D = st.number_input("Select D", min_value=0, value=0)
+    Q = st.number_input("Select Q", min_value=0, value=0)
+    s = st.number_input("Select period", min_value=0, value=0)
+    trend_codes = {
+        'none': None,
+        'constant': 'c',
+        'linear': 't',
+        'constant and linear': 'ct'
+    }
+    if d > 1:
+        trend_codes = {'none': None}
+    elif d > 0:
+        trend_codes = {k: v for k, v in trend_codes.items() if k not in ['constant', 'constant and linear']}
+    trend_label = st.selectbox("Select trend", [k for k in trend_codes.keys()])
+    trend = trend_codes[trend_label]
+    model = SARIMAX(
+        y_train, 
+        trend=trend, 
+        order=(p, d, q),
+        seasonal_order=(P, D, Q, s)
+    ).fit()
+    y_val_forecast = model.get_forecast(steps=len(y_val))
+    val_forecast_vs_actuals_fig = plot_forecast_vs_actuals(y_val, y_val_forecast)
+    st.plotly_chart(val_forecast_vs_actuals_fig)

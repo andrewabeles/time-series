@@ -23,13 +23,12 @@ def test_stationarity(y, alpha=0.05, **kwargs):
     else:
         return f"{summary}. The time series is not stationary."
 
-def get_difference(y, degree=1):
-    y_diff = y.diff()
-    degree -= 1
+def get_difference(y, degree=1, period=1):
     if degree == 0:
-        return y_diff
-    else:
-        return get_difference(y_diff, degree=degree)
+        return y
+    y_diff = y.diff(period)
+    degree -= 1
+    return get_difference(y_diff, degree=degree)
 
 def plot_seasonal_decomposition(df, y=None, period=1):
     decomp = seasonal_decompose(df[y].dropna(), period=period)
@@ -69,46 +68,17 @@ def plot_autocorrelation(y, alpha=0.05, partial=False):
     )
     return fig
 
-def arima_grid_search(y_train, y_val, p_range=(0, 2), d_range=(0, 1), q_range=(0, 2)):
-    best_aic, best_rmse = np.inf, np.inf 
-    best_order = None 
-    results = []
-
-    for p, d, q in itertools.product(
-            range(p_range[0], p_range[1] + 1),
-            range(d_range[0], d_range[1] + 1),
-            range(q_range[0], q_range[1] + 1)
-        ):
-        aic, rmse = evaluate_arima(y_train, y_val, p=p, d=d, q=q)
-        results.append([p, d, q, aic, rmse])
-        if aic < best_aic:
-            best_aic, best_rmse, best_order = aic, rmse, (p, d, q)
-    results_df = pd.DataFrame(results, columns=['p', 'd', 'q', 'AIC', 'RMSE'])
-    return results_df.sort_values('AIC')
-
-def evaluate_arima(y_train, y_val, p=0, d=0, q=0):
-    try:
-        model = ARIMA(y_train, order=(p, d, q))
-        model_fit = model.fit()
-        
-        # Forecast on validation set
-        y_forecast = model_fit.forecast(steps=len(y_val))
-        
-        # Compute RMSE
-        rmse = np.sqrt(mean_squared_error(y_val, y_forecast))
-        
-        return model_fit.aic, rmse
-    except:
-        return np.inf, np.inf  # Return bad scores if model fails
-
-def plot_forecast_vs_actuals(y_actual, y_forecast):
+def plot_forecast_vs_actuals(y_actual, forecast, alpha=0.05):
+    y_forecast = forecast.predicted_mean
     forecast_df = pd.DataFrame({
         't': y_actual.index,
         'actual': y_actual.values,
-        'forecast': y_forecast
-    }).melt(id_vars='t', var_name='series', value_name='value')
+        'forecast': forecast.predicted_mean
+    })
+    forecast_df[['forecast_lower', 'forecast_upper']] = forecast.conf_int(alpha)
+    forecast_melt_df = forecast_df.melt(id_vars='t', var_name='series', value_name='value')
     fig = px.line(
-        forecast_df,
+        forecast_melt_df,
         x='t',
         y='value',
         color='series',
