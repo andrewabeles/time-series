@@ -68,20 +68,21 @@ def plot_autocorrelation(y, alpha=0.05, partial=False):
     )
     return fig
 
-def plot_forecast_vs_actuals(y_actual, forecast, alpha=0.05):
+def plot_forecast_vs_actuals(y_actual, forecast, alpha=0.05, title=None, conf_int=True):
     y_forecast = forecast.predicted_mean
     forecast_df = pd.DataFrame({
         't': y_actual.index,
         'actual': y_actual.values,
         'forecast': forecast.predicted_mean
     })
-    forecast_df[['forecast_lower', 'forecast_upper']] = forecast.conf_int(alpha)
+    if conf_int:
+        forecast_df[['forecast_lower', 'forecast_upper']] = forecast.conf_int(alpha)
     forecast_melt_df = forecast_df.melt(id_vars='t', var_name='series', value_name='value')
     fig = px.line(
         forecast_melt_df,
         x='t',
         y='value',
         color='series',
-        title='Forecast vs. Actual (Validation Set)'
+        title=title
     )
     return fig 

@@ -149,6 +149,13 @@ if uploaded_file is not None:
         order=(p, d, q),
         seasonal_order=(P, D, Q, s)
     ).fit()
+
+    # training set predictions 
+    y_train_pred = model.get_prediction()
+    train_pred_vs_actuals_fig = plot_forecast_vs_actuals(y_train, y_train_pred, title='Predictions vs. Training Data', conf_int=False)
+    st.plotly_chart(train_pred_vs_actuals_fig)
+
+    # validation set forecast 
     y_val_forecast = model.get_forecast(steps=len(y_val))
-    val_forecast_vs_actuals_fig = plot_forecast_vs_actuals(y_val, y_val_forecast)
+    val_forecast_vs_actuals_fig = plot_forecast_vs_actuals(y_val, y_val_forecast, title='Forecast vs. Validation Data')
     st.plotly_chart(val_forecast_vs_actuals_fig)
