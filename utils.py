@@ -27,8 +27,7 @@ def get_difference(y, order=1, period=1):
     if order == 0:
         return y
     y_diff = y.diff(period)
-    order -= 1
-    return get_difference(y_diff, order=order, period=period)
+    return get_difference(y_diff, order=order-1, period=period)
 
 def plot_seasonal_decomposition(df, y=None, period=1):
     decomp = seasonal_decompose(df[y].dropna(), period=period)
