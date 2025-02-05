@@ -23,12 +23,12 @@ def test_stationarity(y, alpha=0.05, **kwargs):
     else:
         return f"{summary}. The time series is not stationary."
 
-def get_difference(y, degree=1, period=1):
-    if degree == 0:
+def get_difference(y, order=1, period=1):
+    if order == 0:
         return y
     y_diff = y.diff(period)
-    degree -= 1
-    return get_difference(y_diff, degree=degree)
+    order -= 1
+    return get_difference(y_diff, order=order, period=period)
 
 def plot_seasonal_decomposition(df, y=None, period=1):
     decomp = seasonal_decompose(df[y].dropna(), period=period)
