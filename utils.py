@@ -4,7 +4,7 @@ import itertools
 from statsmodels.tsa.seasonal import seasonal_decompose
 from statsmodels.tsa.stattools import adfuller, acf, pacf
 from statsmodels.tsa.arima.model import ARIMA
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
 import plotly.graph_objects as go
 import plotly.express as px
 
@@ -85,3 +85,12 @@ def plot_forecast_vs_actuals(y_actual, forecast, alpha=0.05, title=None, conf_in
         title=title
     )
     return fig 
+
+def evaluate_predictions(y_true, y_pred):
+    mae = mean_absolute_error(y_true, y_pred)
+    mape = mean_absolute_percentage_error(y_true, y_pred)
+    metrics = {
+        'Mean Absolute Error': round(mae, 2),
+        'Mean Absolute Percentage Error': f'{round(mape * 100, 2)}%'
+    }
+    return metrics 

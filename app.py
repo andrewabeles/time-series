@@ -2,12 +2,11 @@ import streamlit as st
 import pandas as pd 
 import numpy as np 
 import plotly.express as px 
-from statsmodels.tsa.arima.model import ARIMA
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from utils import (
     split_time_series, test_stationarity, get_difference, 
     plot_seasonal_decomposition, plot_autocorrelation, 
-    plot_forecast_vs_actuals
+    plot_forecast_vs_actuals, evaluate_predictions
 )
 
 st.title("Time Series Analyzer")
@@ -79,7 +78,6 @@ with st.sidebar:
         trend_label = st.selectbox("Trend", [k for k in trend_codes.keys()])
         trend = trend_codes[trend_label]
     with st.expander("Seasonal Parameters"):
-        include_seasonality_in_forecast = st.checkbox("Include Seasonality in Forecast")
         D = st.number_input(
             "Seasonal Differencing Order",
             min_value=0,
@@ -99,6 +97,7 @@ with st.sidebar:
             min_value=2,
             help="""The expected period of seasonality. For example, 4 if data is quarterly, 7 if daily, etc."""
         )
+        include_seasonality_in_forecast = st.checkbox("Include Seasonality in Forecast")
     confidence = st.selectbox(
         "Confidence Level",
         [0.99, 0.95, 0.9, 0.8],
@@ -186,8 +185,14 @@ if uploaded_file is not None:
         y_train_pred = model.get_prediction()
         train_pred_vs_actuals_fig = plot_forecast_vs_actuals(y_train, y_train_pred, title='Predictions vs. Training Data', conf_int=False)
         st.plotly_chart(train_pred_vs_actuals_fig, key='train_pred_vs_actuals_fig')
+        train_metrics = evaluate_predictions(y_train, y_train_pred.predicted_mean)
+        for k, v in train_metrics.items():
+            st.write(f'{k}: {v}')
     with col2d:
         # validation set forecast 
         y_val_forecast = model.get_forecast(steps=len(y_val))
         val_forecast_vs_actuals_fig = plot_forecast_vs_actuals(y_val, y_val_forecast, title='Forecast vs. Validation Data')
         st.plotly_chart(val_forecast_vs_actuals_fig, key='val_forecast_vs_actuals_fig')
+        val_metrics = evaluate_predictions(y_val, y_val_forecast.predicted_mean)
+        for k, v in val_metrics.items():
+            st.write(f'{k}: {v}')
