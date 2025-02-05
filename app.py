@@ -9,6 +9,12 @@ from utils import (
     plot_forecast_vs_actuals, evaluate_predictions
 )
 
+st.set_page_config(
+    page_title="Time Series Analyzer",
+    page_icon=':chart_with_upwards_trend:',
+    layout='wide'
+)
+
 st.title("Time Series Analyzer")
 
 with st.sidebar:
